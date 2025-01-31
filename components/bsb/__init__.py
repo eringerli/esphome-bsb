@@ -18,6 +18,8 @@ CONF_PARAMETER_NUMBER = "parameter_number"
 CONF_SOURCE_ADDRESS = "source_address"
 CONF_DESTINATION_ADDRESS = "destination_address"
 CONF_QUERY_INTERVAL = "query_interval"
+CONF_RETRY_INTERVAL = "retry_interval"
+CONF_RETRY_COUNT = "retry_count"
 CONF_BSB_TYPE= "type"
 
 CONF_BSB_TYPE_ENUM = {
@@ -54,6 +56,8 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(BsbComponent),
+            cv.Optional(CONF_RETRY_COUNT, default="3"): cv.hex_int_range(0x00,0xff),
+            cv.Optional(CONF_RETRY_INTERVAL, default="5s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_QUERY_INTERVAL, default="0.25s"): cv.positive_time_period_milliseconds,
             cv.Optional(
                 CONF_SOURCE_ADDRESS, default="66"
@@ -75,6 +79,12 @@ async def to_code(config):
 
     if CONF_QUERY_INTERVAL in config:
         cg.add(var.set_query_interval(config[CONF_QUERY_INTERVAL]))
+
+    if CONF_RETRY_INTERVAL in config:
+        cg.add(var.set_retry_interval(config[CONF_RETRY_INTERVAL]))
+
+    if CONF_RETRY_COUNT in config:
+        cg.add(var.set_retry_count(config[CONF_RETRY_COUNT]))
 
     if CONF_SOURCE_ADDRESS in config:
         cg.add(var.set_source_address(config[CONF_SOURCE_ADDRESS]))

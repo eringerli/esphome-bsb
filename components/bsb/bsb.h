@@ -28,38 +28,45 @@ namespace esphome {
     public:
       BsbComponent();
 
-      void     setup() override;
-      void     dump_config() override;
-      void     loop() override;
-      float    get_setup_priority() const override { return setup_priority::DATA; };
-      void     set_update_interval( uint32_t val ) { update_interval_ms = val; }
-      uint32_t get_update_interval() { return update_interval_ms; }
-      void     set_source_address( uint32_t val ) { source_address = val; }
-      void     set_destination_address( uint32_t val ) { destination_address = val; }
-      void     set_query_interval( uint32_t val ) { query_interval = val; }
+      void  setup() override;
+      void  dump_config() override;
+      void  loop() override;
+      float get_setup_priority() const override { return setup_priority::DATA; };
 
-      void register_sensor( BsbSensorBase* sensor ) { this->sensors.insert( { sensor->get_field_id(), sensor } ); }
-      void register_number( BsbNumber* number ) { this->numbers.insert( { number->get_field_id(), number } ); }
+      void set_source_address( uint32_t val ) { source_address_ = val; }
+      void set_destination_address( uint32_t val ) { destination_address_ = val; }
+
+      void set_query_interval( uint32_t val ) { query_interval_ = val; }
+
+      void           set_retry_interval( uint32_t val ) { retry_interval_ = val; }
+      const uint32_t get_retry_interval() const { return retry_interval_; }
+      void           set_retry_count( uint8_t val ) { retry_count_ = val; }
+      const uint8_t  get_retry_count() const { return retry_count_; }
+
+      void register_sensor( BsbSensorBase* sensor ) { this->sensors_.insert( { sensor->get_field_id(), sensor } ); }
+      void register_number( BsbNumber* number ) { this->numbers_.insert( { number->get_field_id(), number } ); }
 
     protected:
-      void callbackPacket( const BsbPacket* packet );
+      void callback_packet( const BsbPacket* packet );
 
-      BsbPacketReceive bsbPacketReceive = BsbPacketReceive( [&]( const BsbPacket* packet ) { callbackPacket( packet ); } );
+      void write_packet( const BsbPacket& packet );
 
-      SensorMap sensors;
-      NumberMap numbers;
+      BsbPacketReceive bsbPacketReceive = BsbPacketReceive( [&]( const BsbPacket* packet ) { callback_packet( packet ); } );
 
-      uint32_t update_interval_ms = 0;
-      uint32_t query_interval;
+      SensorMap sensors_;
+      NumberMap numbers_;
 
-      uint8_t source_address;
-      uint8_t destination_address;
+      uint32_t query_interval_;
+      uint32_t retry_interval_;
+      uint8_t  retry_count_;
+
+      uint8_t source_address_;
+      uint8_t destination_address_;
 
     private:
-      void sendNumber( const BsbNumber* number );
-      void writePacket( const BsbPacket& packet );
+      uint32_t last_query_ = 0;
 
-      uint32_t lastQuery = 0;
+      static constexpr uint32_t IntervalGetAfterSet = 1000;
     };
 
   } // namespace bsb

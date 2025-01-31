@@ -56,3 +56,5 @@ async def to_code(config):
         cg.add(var.set_update_interval(config[CONF_UPDATE_INTERVAL]))
 
     cg.add(component.register_sensor(var))
+    cg.add(var.set_retry_interval(component.get_retry_interval()))
+    cg.add(var.set_retry_count(component.get_retry_count()))

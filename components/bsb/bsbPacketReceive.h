@@ -23,8 +23,6 @@ namespace esphome {
       BsbPacketReceive() = delete;
 
       void loop( const uint8_t data ) {
-        // ESP_LOGE( "BsbPacketReceive", "State: %u (%x)", ( uint8_t )state, data );
-
         switch( state ) {
           case ProtocolStates::Start:
             buffer.clear();
@@ -121,12 +119,7 @@ namespace esphome {
 
             uint16_t crcCalculated = CRC( buffer.cbegin(), buffer.cend() - 2 );
 
-            // ESP_LOGE( "BsbPacketReceive", "CRC: %u|%u", crc, crcCalculated );
-            //
-            // ESP_LOGD( "BsbPacketReceive", "%s", printPacket().c_str() );
-
             if( crc == crcCalculated ) {
-              // parsePaload();
               callback( this );
             }
 
@@ -135,8 +128,10 @@ namespace esphome {
         }
       }
 
+    private:
       std::function< void( const BsbPacket* ) > callback;
-      ProtocolStates                            state = ProtocolStates::Start;
+
+      ProtocolStates state = ProtocolStates::Start;
     };
   }
 }

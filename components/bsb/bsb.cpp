@@ -20,24 +20,38 @@ namespace esphome {
 
     void BsbComponent::dump_config() {
       ESP_LOGCONFIG( TAG, "BSB:" );
-      LOG_UPDATE_INTERVAL( this );
-      ESP_LOGCONFIG( TAG, "  query interval: %.3fs", this->query_interval / 1000.0f );
-      ESP_LOGCONFIG( TAG, "  source address: 0x%02X", this->source_address );
-      ESP_LOGCONFIG( TAG, "  destination address: 0x%02X", this->destination_address );
+      ESP_LOGCONFIG( TAG, "  query interval: %.3fs", this->query_interval_ / 1000.0f );
+      ESP_LOGCONFIG( TAG, "  retry interval: %.3fs", this->retry_interval_ / 1000.0f );
+      ESP_LOGCONFIG( TAG, "  source address: 0x%02X", this->source_address_ );
+      ESP_LOGCONFIG( TAG, "  destination address: 0x%02X", this->destination_address_ );
 
       ESP_LOGCONFIG( TAG, "  Sensors:" );
-      for( const auto& item : sensors ) {
+      for( const auto& item : sensors_ ) {
         BsbSensorBase* s = item.second;
         // ESP_LOGCONFIG( TAG, "    parameter number: %u", s->get_parameter_number() );
-        ESP_LOGCONFIG( TAG, "  - field ID: 0x%08X", s->get_field_id() );
+        switch( s->get_type() ) {
+          case SensorType::Sensor:
+            ESP_LOGCONFIG( TAG, "  - type: Sensor" );
+            ESP_LOGCONFIG( TAG, "    factor: %.3f", ( ( BsbSensor* )s )->get_factor() );
+            ESP_LOGCONFIG( TAG, "    divisor: %.3f", ( ( BsbSensor* )s )->get_divisor() );
+            break;
+
+          case SensorType::TextSensor:
+            ESP_LOGCONFIG( TAG, "  - type: Text Sensor" );
+            break;
+        }
+        ESP_LOGCONFIG( TAG, "    field ID: 0x%08X", s->get_field_id() );
         ESP_LOGCONFIG( TAG, "    update_interval: %.3fs", s->get_update_interval() / 1000.0f );
       }
       ESP_LOGCONFIG( TAG, "  Numbers:" );
-      for( const auto& item : numbers ) {
+      for( const auto& item : numbers_ ) {
         BsbNumber* n = item.second;
         // ESP_LOGCONFIG( TAG, "    parameter number: %u", s->get_parameter_number() );
         ESP_LOGCONFIG( TAG, "  - field ID: 0x%08X", n->get_field_id() );
         ESP_LOGCONFIG( TAG, "    update_interval: %.3fs", n->get_update_interval() / 1000.0f );
+        ESP_LOGCONFIG( TAG, "    factor: %.3f", n->get_factor() );
+        ESP_LOGCONFIG( TAG, "    divisor: %.3f", n->get_divisor() );
+        ESP_LOGCONFIG( TAG, "    broadcast: %s", YESNO( n->get_broadcast() ) );
       }
     }
 
@@ -48,91 +62,27 @@ namespace esphome {
         bsbPacketReceive.loop( this->read() ^ 0xff );
       }
 
-      if( now > lastQuery ) {
-        lastQuery = now + query_interval;
+      if( now > last_query_ ) {
+        last_query_ = now + query_interval_;
 
         bool packetSent = false;
 
-        for( auto& number : numbers ) {
+        for( auto& number : numbers_ ) {
           if( number.second->is_ready_to_set( now ) ) {
-            switch( number.second->get_value_type() ) {
-              case BsbNumberValueType::UInt8: /*{
-                auto packet = BsbPacketSet( source_address,
-                                            destination_address,
-                                            number.second->get_field_id(),
-                                            ( uint8_t )(number.second->getValueToSend()),
-                                            number.second->broadcast,
-                                            number.second->enable_byte );
+            write_packet( number.second->createPackageSet( source_address_, destination_address_ ) );
 
-                writePacket( packet );
-              } break;*/
-              case BsbNumberValueType::Int8: {
-                auto packet = BsbPacketSet( source_address,
-                                            destination_address,
-                                            number.second->get_field_id(),
-                                            ( int8_t )( number.second->getValueToSend() ),
-                                            number.second->broadcast,
-                                            number.second->enable_byte );
-
-                writePacket( packet );
-              } break;
-
-              case BsbNumberValueType::Int16: {
-                auto packet = BsbPacketSet( source_address,
-                                            destination_address,
-                                            number.second->get_field_id(),
-                                            ( int16_t )( number.second->getValueToSend() ),
-                                            number.second->broadcast,
-                                            number.second->enable_byte );
-
-                writePacket( packet );
-              } break;
-
-              case BsbNumberValueType::Int32: {
-                auto packet = BsbPacketSet( source_address,
-                                            destination_address,
-                                            number.second->get_field_id(),
-                                            ( int32_t )( number.second->getValueToSend() ),
-                                            number.second->broadcast,
-                                            number.second->enable_byte );
-
-                writePacket( packet );
-              } break;
-
-              case BsbNumberValueType::Temperature:
-              case BsbNumberValueType::RoomTemperature: {
-                auto packet = BsbPacketSet( source_address,
-                                            destination_address,
-                                            number.second->get_field_id(),
-                                            ( float )( number.second->getValueToSend() ),
-                                            number.second->broadcast,
-                                            number.second->enable_byte,
-                                            number.second->get_value_type() == BsbNumberValueType::RoomTemperature );
-
-                writePacket( packet );
-              } break;
-
-              default:
-                ESP_LOGE( TAG, "switch( number.second->get_value_type() ): %u", uint8_t( number.second->get_value_type() ) );
-            }
-
-            if( number.second->broadcast ) {
+            if( number.second->get_broadcast() ) {
               number.second->reset_dirty();
+              number.second->publish_state( number.second->state );
+            } else {
+              number.second->schedule_next_update( now, IntervalGetAfterSet );
             }
-
-            number.second->sent++;
 
             packetSent = true;
             break;
           }
           if( number.second->is_ready_to_update( now ) ) {
-            auto packet = BsbPacketGet( source_address, destination_address, number.second->get_field_id() );
-
-            writePacket( packet );
-
-            // number.second->update_timestamp( millis() );
-
-            number.second->sent++;
+            write_packet( number.second->createPackageGet( source_address_, destination_address_ ) );
 
             packetSent = true;
             break;
@@ -140,15 +90,9 @@ namespace esphome {
         }
 
         if( !packetSent ) {
-          for( auto& sensor : sensors ) {
+          for( auto& sensor : sensors_ ) {
             if( sensor.second->is_ready( now ) ) {
-              auto packet = BsbPacketGet( source_address, destination_address, sensor.second->get_field_id() );
-
-              writePacket( packet );
-
-              sensor.second->sent++;
-
-              // sensor.second->update_timestamp( millis() );
+              write_packet( sensor.second->createPackageGet( source_address_, destination_address_ ) );
 
               break;
             }
@@ -157,66 +101,70 @@ namespace esphome {
       }
     }
 
-    void BsbComponent::callbackPacket( const BsbPacket* packet ) {
-      ESP_LOGD( TAG, "<<< %s", ( packet->printPacket() ).c_str() );
+    void BsbComponent::callback_packet( const BsbPacket* packet ) {
+      ESP_LOGD( TAG, "<<< %s", ( packet->print_packet() ).c_str() );
 
       if( packet->command == BsbPacket::Command::Inf || packet->command == BsbPacket::Command::Ret ) {
         {
-          auto range = sensors.equal_range( packet->fieldId );
+          auto range = sensors_.equal_range( packet->fieldId );
 
           for( auto sensor = range.first; sensor != range.second; ++sensor ) {
-            // ESP_LOGE( TAG, "%08X|%08X", sensor.second->get_field_id(), packet->fieldId );
+            switch( sensor->second->get_type() ) {
+              case SensorType::Sensor: {
+                BsbSensor* bsbSensor = ( BsbSensor* )sensor->second;
+                bsbSensor->schedule_next_regular_update( millis() );
+                switch( bsbSensor->get_value_type() ) {
+                  case BsbSensorValueType::UInt8:
+                    bsbSensor->set_value( packet->parse_as_uint8() );
+                    break;
+                  case BsbSensorValueType::Int8:
+                    bsbSensor->set_value( packet->parse_as_int8() );
+                    break;
+                  case BsbSensorValueType::Int16:
+                    bsbSensor->set_value( packet->parse_as_int16() );
+                    break;
+                  case BsbSensorValueType::Int32:
+                    bsbSensor->set_value( packet->parse_as_int32() );
+                    break;
+                  case BsbSensorValueType::Temperature:
+                    bsbSensor->set_value( packet->parse_as_temperature() );
+                    break;
+                }
+                bsbSensor->publish();
+              } break;
 
-            if( sensor->second->get_type() == SensorType::SENSOR ) {
-              BsbSensor* bsbSensor = ( BsbSensor* )sensor->second;
-              bsbSensor->update_timestamp( millis() );
-              switch( bsbSensor->get_value_type() ) {
-                case BsbSensorValueType::UInt8:
-                  bsbSensor->set_value( packet->parseAsUInt8() );
-                  break;
-                case BsbSensorValueType::Int8:
-                  bsbSensor->set_value( packet->parseAsInt8() );
-                  break;
-                case BsbSensorValueType::Int16:
-                  bsbSensor->set_value( packet->parseAsInt16() );
-                  break;
-                case BsbSensorValueType::Int32:
-                  bsbSensor->set_value( packet->parseAsInt32() );
-                  break;
-                case BsbSensorValueType::Temperature:
-                  bsbSensor->set_value( packet->parseAsTemperature() );
-                  break;
-              }
-              bsbSensor->publish();
-            }
-            if( sensor->second->get_type() == SensorType::TEXT_SENSOR ) {
-              BsbTextSensor* bsbSensor = ( BsbTextSensor* )sensor->second;
-              bsbSensor->update_timestamp( millis() );
-              bsbSensor->set_value( packet->parseAsText() );
-              bsbSensor->publish();
+              case SensorType::TextSensor: {
+                BsbTextSensor* bsbSensor = ( BsbTextSensor* )sensor->second;
+                bsbSensor->schedule_next_regular_update( millis() );
+                bsbSensor->set_value( packet->parse_as_text() );
+                bsbSensor->publish();
+              } break;
             }
           }
         }
 
         {
-          auto range = numbers.equal_range( packet->fieldId );
+          auto range = numbers_.equal_range( packet->fieldId );
           for( auto number = range.first; number != range.second; ++number ) {
-            // ESP_LOGE( TAG, "%08X|%08X", sensor.second->get_field_id(), packet->fieldId );
-
             BsbNumber* bsbNumber = number->second;
-            bsbNumber->update_timestamp( millis() );
+            bsbNumber->schedule_next_regular_update( millis() );
             switch( bsbNumber->get_value_type() ) {
+              case BsbNumberValueType::UInt8:
+                bsbNumber->set_value( packet->parse_as_uint8() );
+                break;
               case BsbNumberValueType::Int8:
-                bsbNumber->publish_state( packet->parseAsInt8() );
+                bsbNumber->set_value( packet->parse_as_int8() );
                 break;
               case BsbNumberValueType::Int16:
-                bsbNumber->publish_state( packet->parseAsInt16() );
+                bsbNumber->set_value( packet->parse_as_int16() );
                 break;
               case BsbNumberValueType::Int32:
-                bsbNumber->publish_state( packet->parseAsInt32() );
+                bsbNumber->set_value( packet->parse_as_int32() );
                 break;
               case BsbNumberValueType::Temperature:
-                bsbNumber->publish_state( packet->parseAsTemperature() );
+                bsbNumber->set_value( packet->parse_as_temperature() );
+                break;
+              default:
                 break;
             }
           }
@@ -224,26 +172,24 @@ namespace esphome {
       }
 
       if( packet->command == BsbPacket::Command::Ack || packet->command == BsbPacket::Command::Nack ) {
-        auto range = numbers.equal_range( packet->fieldId );
+        auto range = numbers_.equal_range( packet->fieldId );
 
         for( auto sensor = range.first; sensor != range.second; ++sensor ) {
-          // ESP_LOGE( TAG, "%08X|%08X", sensor.second->get_field_id(), packet->fieldId );
-
           sensor->second->reset_dirty();
         }
       }
     }
 
-    void BsbComponent::sendNumber( const BsbNumber* number ) {}
+    void BsbComponent::write_packet( const BsbPacket& packet ) {
+      if( !packet.buffer.empty() ) {
+        ESP_LOGD( TAG, ">>> %s", ( packet.print_packet() ).c_str() );
 
-    void BsbComponent::writePacket( const BsbPacket& packet ) {
-      ESP_LOGD( TAG, ">>> %s", ( packet.printPacket() ).c_str() );
-
-      auto buffer = packet.buffer;
-      for( auto& b : buffer ) {
-        b ^= 0xff;
+        auto buffer = packet.buffer;
+        for( auto& b : buffer ) {
+          b ^= 0xff;
+        }
+        write_array( buffer );
       }
-      write_array( buffer );
     }
 
   } // namespace bsb

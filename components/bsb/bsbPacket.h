@@ -15,7 +15,7 @@ namespace esphome {
   namespace bsb {
     class BsbPacket {
     public:
-      enum class Command : uint8_t { Inf = 2, Set = 3, Ack = 4, Nack = 5, Get = 6, Ret = 7 };
+      enum class Command : uint8_t { None = 0, Inf = 2, Set = 3, Ack = 4, Nack = 5, Get = 6, Ret = 7 };
 
       BsbPacket() {
         buffer.reserve( 32 );
@@ -42,7 +42,7 @@ namespace esphome {
         return crc;
       }
 
-      std::string printPacket() const {
+      std::string print_packet() const {
         std::string output;
         output = "BSB Packet: ";
 
@@ -91,67 +91,43 @@ namespace esphome {
         return output;
       }
 
-      int8_t parseAsInt8() const {
+      int8_t parse_as_int8() const {
         if( payload.size() != 2 ) {
           return 0;
         }
 
-        // uint8_t flag = payload.front();
-
-        // if( flag == 0x01 ) {
-        //   return 0;
-        // } else {
         return payload.back();
-        // }
       }
 
-      uint8_t parseAsUInt8() const {
+      uint8_t parse_as_uint8() const {
         if( payload.size() != 2 ) {
           return 0;
         }
 
-        // uint8_t flag = payload.front();
-
-        // if( flag == 0x01 ) {
-        //   return 0;
-        // } else {
         return payload.back();
-        // }
       }
 
-      int16_t parseAsInt16() const {
+      int16_t parse_as_int16() const {
         if( payload.size() != 3 ) {
           return 0;
         }
 
-        // uint8_t flag = payload.front();
-
-        // if( flag == 0x01 ) {
-        //   return 0;
-        // } else {
         return payload[1] << 8 | payload[2];
-        // }
       }
 
-      float parseAsTemperature() const { return parseAsInt16() / 64.; }
+      float parse_as_temperature() const { return parse_as_int16() / 64.; }
 
-      int32_t parseAsInt32() const {
+      int32_t parse_as_int32() const {
         if( payload.size() != 5 ) {
           return 0;
         }
 
-        // uint8_t flag = payload.front();
-
-        // if( flag == 0x01 ) {
-        //   return 0;
-        // } else {
         return payload[1] << 24 | payload[2] << 16 | payload[3] << 8 | payload[4];
-        // }
       }
 
-      std::string parseAsText() const { return std::string( payload.cbegin(), payload.cend() ); }
+      std::string parse_as_text() const { return std::string( payload.cbegin(), payload.cend() ); }
 
-      std::string parseAsTime() const {
+      std::string parse_as_time() const {
         if( payload.size() != 3 ) {
           return "";
         }
@@ -168,7 +144,7 @@ namespace esphome {
         }
       }
 
-      std::string parseAsSchedule() const {
+      std::string parse_as_schedule() const {
         if( payload.size() != 12 ) {
           return "";
         }
@@ -193,7 +169,7 @@ namespace esphome {
         return str;
       }
 
-      void createPacket() {
+      void create_packet() {
         buffer.clear();
         lenght = PacketSizeWithoutPyload + payload.size();
 
