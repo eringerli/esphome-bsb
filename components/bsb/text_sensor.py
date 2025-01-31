@@ -18,8 +18,8 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(CONF_BSB_ID): cv.use_id(BsbComponent),
             cv.Required(CONF_FIELD_ID): cv.positive_int,
-            cv.Optional(CONF_UPDATE_INTERVAL, default="15min"): cv.update_interval,
             cv.Optional(CONF_PARAMETER_NUMBER, default="0"): cv.positive_int,
+            cv.Optional(CONF_UPDATE_INTERVAL, default="15min"): cv.update_interval,
         }
     ),
     cv.has_exactly_one_key(CONF_FIELD_ID),

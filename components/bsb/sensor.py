@@ -21,12 +21,12 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(CONF_BSB_ID): cv.use_id(BsbComponent),
             cv.Required(CONF_FIELD_ID): cv.positive_int,
-            cv.Optional(CONF_UPDATE_INTERVAL, default="15min"): cv.update_interval,
-            cv.Required(CONF_BSB_TYPE): cv.enum(CONF_BSB_TYPE_ENUM, upper=True, space="_"),
+            cv.Optional(CONF_ENABLE_BYTE, default="1"): cv.hex_int_range(0x00,0xff),
             cv.Optional(CONF_PARAMETER_NUMBER, default="0"): cv.positive_int,
+            cv.Required(CONF_BSB_TYPE): cv.enum(CONF_BSB_TYPE_ENUM, upper=True, space="_"),
+            cv.Optional(CONF_UPDATE_INTERVAL, default="15min"): cv.update_interval,
             cv.Optional(CONF_DIVISOR, default="1"): cv.float_,
             cv.Optional(CONF_FACTOR, default="1"): cv.float_,
-            cv.Optional(CONF_ENABLE_BYTE, default="1"): cv.hex_int_range(0x00,0xff),
         }
     ),
     cv.has_exactly_one_key(CONF_FIELD_ID),
