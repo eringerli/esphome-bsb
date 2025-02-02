@@ -3,12 +3,19 @@
 #include "bsbPacketSend.h"
 
 #include "esphome/components/sensor/sensor.h"
-#include "esphome/components/text_sensor/text_sensor.h"
+
+#ifdef USE_BINARY_SENSOR
+  #include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
+
+#ifdef USE_TEXT_SENSOR
+  #include "esphome/components/text_sensor/text_sensor.h"
+#endif
 
 namespace esphome {
   namespace bsb {
 
-    enum SensorType { Sensor, TextSensor };
+    enum SensorType { Sensor, TextSensor, BinarySensor };
 
     enum class BsbSensorValueType { UInt8, Int8, Int16, Int32, Temperature, RoomTemperature };
 
@@ -91,6 +98,7 @@ namespace esphome {
       float value_;
     };
 
+#ifdef USE_TEXT_SENSOR
     class BsbTextSensor
         : public BsbSensorBase
         , public text_sensor::TextSensor {
@@ -103,6 +111,41 @@ namespace esphome {
     protected:
       std::string value_;
     };
+#endif
+
+#ifdef USE_BINARY_SENSOR
+    class BsbBinarySensor
+        : public BsbSensorBase
+        , public binary_sensor::BinarySensor {
+    public:
+      SensorType get_type() override { return SensorType::BinarySensor; }
+      void       publish() override { publish_state( value_ ); }
+
+      void set_enable_byte( const uint8_t enable_byte ) { this->enable_byte_ = enable_byte; }
+
+      void set_value( uint32_t value ) {
+        if( value == on_value_ ) {
+          value_ = true;
+        }
+        if( value == off_value_ ) {
+          value_ = false;
+        }
+      }
+
+      void           set_on_value( const uint32_t on_value ) { this->on_value_ = on_value; }
+      const uint32_t get_on_value() const { return this->on_value_; }
+
+      void           set_off_value( const uint32_t off_value ) { this->off_value_ = off_value; }
+      const uint32_t get_off_value() const { return this->off_value_; }
+
+    protected:
+      uint32_t on_value_    = 1;
+      uint32_t off_value_   = 0;
+      uint8_t  enable_byte_ = 0x01;
+
+      bool value_;
+    };
+#endif
 
   } // namespace bsb
 } // namespace esphome

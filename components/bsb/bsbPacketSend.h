@@ -33,7 +33,7 @@ namespace esphome {
                          const uint8_t  destinationAddress,
                          const uint32_t fieldId,
                          const int8_t   value,
-                         const uint8_t  enable_byte = 0x01 )
+                         const uint8_t  enable_byte )
           : BsbPacketSet( sourceAddress, destinationAddress, fieldId ) {
         if( enable_byte == 0x06 && value == 0. ) {
           payload.push_back( 0x05 );
@@ -55,7 +55,7 @@ namespace esphome {
                         const uint8_t  destinationAddress,
                         const uint32_t fieldId,
                         const int8_t   value,
-                        const uint8_t  enable_byte = 0x01 )
+                        const uint8_t  enable_byte )
           : BsbPacketSet( sourceAddress, destinationAddress, fieldId ) {
         if( enable_byte == 0x06 && value == 0. ) {
           payload.push_back( 0x05 );
@@ -77,7 +77,7 @@ namespace esphome {
                          const uint8_t  destinationAddress,
                          const uint32_t fieldId,
                          const int16_t  value,
-                         const uint8_t  enable_byte = 0x01 )
+                         const uint8_t  enable_byte )
           : BsbPacketSet( sourceAddress, destinationAddress, fieldId ) {
         if( enable_byte == 0x06 && value == 0. ) {
           payload.push_back( 0x05 );
@@ -100,7 +100,7 @@ namespace esphome {
                          const uint8_t  destinationAddress,
                          const uint32_t fieldId,
                          const int32_t  value,
-                         const uint8_t  enable_byte = 0x01 )
+                         const uint8_t  enable_byte )
           : BsbPacketSet( sourceAddress, destinationAddress, fieldId ) {
         if( enable_byte == 0x06 && value == 0. ) {
           payload.push_back( 0x05 );
@@ -125,7 +125,7 @@ namespace esphome {
                                const uint8_t  destinationAddress,
                                const uint32_t fieldId,
                                const float    value,
-                               const uint8_t  enable_byte = 0x01 )
+                               const uint8_t  enable_byte )
           : BsbPacketSetInt16( sourceAddress, destinationAddress, fieldId, int16_t( value * 64. ), enable_byte ) {
         create_packet();
       }
@@ -163,10 +163,7 @@ namespace esphome {
 
     class BsbPacketInfRoomTemperature : public BsbPacketInf {
     public:
-      BsbPacketInfRoomTemperature( const uint8_t  sourceAddress,
-                                   const uint32_t fieldId,
-                                   const float    value,
-                                   const uint8_t  enable_byte = 0x01 )
+      BsbPacketInfRoomTemperature( const uint8_t sourceAddress, const uint32_t fieldId, const float value, const uint8_t enable_byte )
           : BsbPacketInf( sourceAddress, fieldId ) {
         int16_t val = value * 64.;
         payload.push_back( val >> 8 );

@@ -36,22 +36,43 @@ namespace esphome {
             ESP_LOGCONFIG( TAG, "    divisor: %.3f", ( ( BsbSensor* )s )->get_divisor() );
             break;
 
+#ifdef USE_TEXT_SENSOR
           case SensorType::TextSensor:
             ESP_LOGCONFIG( TAG, "  - type: Text Sensor" );
             break;
+#endif
+
+#ifdef USE_BINARY_SENSOR
+          case SensorType::BinarySensor:
+            ESP_LOGCONFIG( TAG, "  - type: Binary Sensor" );
+            break;
+#endif
         }
         ESP_LOGCONFIG( TAG, "    field ID: 0x%08X", s->get_field_id() );
         ESP_LOGCONFIG( TAG, "    update_interval: %.3fs", s->get_update_interval() / 1000.0f );
       }
       ESP_LOGCONFIG( TAG, "  Numbers:" );
       for( const auto& item : numbers_ ) {
-        BsbNumber* n = item.second;
+        BsbNumberBase* n = item.second;
         // ESP_LOGCONFIG( TAG, "    parameter number: %u", s->get_parameter_number() );
-        ESP_LOGCONFIG( TAG, "  - field ID: 0x%08X", n->get_field_id() );
+        switch( n->get_type() ) {
+          case NumberType::Number:
+            ESP_LOGCONFIG( TAG, "  - type: Number" );
+            ESP_LOGCONFIG( TAG, "    factor: %.3f", ( ( BsbNumber* )n )->get_factor() );
+            ESP_LOGCONFIG( TAG, "    divisor: %.3f", ( ( BsbNumber* )n )->get_divisor() );
+            ESP_LOGCONFIG( TAG, "    broadcast: %s", YESNO( ( ( BsbNumber* )n )->get_broadcast() ) );
+            break;
+
+#ifdef USE_SWITCH
+          case NumberType::Switch:
+            ESP_LOGCONFIG( TAG, "  - type: Switch" );
+            ESP_LOGCONFIG( TAG, "    on_value: %02X", ( ( BsbSwitch* )n )->get_on_value() );
+            ESP_LOGCONFIG( TAG, "    off_value: %02X", ( ( BsbSwitch* )n )->get_off_value() );
+            break;
+#endif
+        }
+        ESP_LOGCONFIG( TAG, "    field ID: 0x%08X", n->get_field_id() );
         ESP_LOGCONFIG( TAG, "    update_interval: %.3fs", n->get_update_interval() / 1000.0f );
-        ESP_LOGCONFIG( TAG, "    factor: %.3f", n->get_factor() );
-        ESP_LOGCONFIG( TAG, "    divisor: %.3f", n->get_divisor() );
-        ESP_LOGCONFIG( TAG, "    broadcast: %s", YESNO( n->get_broadcast() ) );
       }
     }
 
@@ -73,7 +94,7 @@ namespace esphome {
 
             if( number.second->get_broadcast() ) {
               number.second->reset_dirty();
-              number.second->publish_state( number.second->state );
+              number.second->publish();
             } else {
               number.second->schedule_next_update( now, IntervalGetAfterSet );
             }
@@ -82,10 +103,12 @@ namespace esphome {
             break;
           }
           if( number.second->is_ready_to_update( now ) ) {
-            write_packet( number.second->createPackageGet( source_address_, destination_address_ ) );
+            if( !number.second->get_broadcast() ) {
+              write_packet( number.second->createPackageGet( source_address_, destination_address_ ) );
 
-            packetSent = true;
-            break;
+              packetSent = true;
+              break;
+            }
           }
         }
 
@@ -133,12 +156,36 @@ namespace esphome {
                 bsbSensor->publish();
               } break;
 
+#ifdef USE_TEXT_SENSOR
               case SensorType::TextSensor: {
                 BsbTextSensor* bsbSensor = ( BsbTextSensor* )sensor->second;
                 bsbSensor->schedule_next_regular_update( millis() );
                 bsbSensor->set_value( packet->parse_as_text() );
                 bsbSensor->publish();
               } break;
+#endif
+
+#ifdef USE_BINARY_SENSOR
+              case SensorType::BinarySensor: {
+                BsbBinarySensor* bsbSensor = ( BsbBinarySensor* )sensor->second;
+                bsbSensor->schedule_next_regular_update( millis() );
+                switch( bsbSensor->get_value_type() ) {
+                  case BsbSensorValueType::UInt8:
+                    bsbSensor->set_value( packet->parse_as_uint8() );
+                    break;
+                  case BsbSensorValueType::Int8:
+                    bsbSensor->set_value( packet->parse_as_int8() );
+                    break;
+                  case BsbSensorValueType::Int16:
+                    bsbSensor->set_value( packet->parse_as_int16() );
+                    break;
+                  case BsbSensorValueType::Int32:
+                    bsbSensor->set_value( packet->parse_as_int32() );
+                    break;
+                }
+                bsbSensor->publish();
+              } break;
+#endif
             }
           }
         }
@@ -146,7 +193,7 @@ namespace esphome {
         {
           auto range = numbers_.equal_range( packet->fieldId );
           for( auto number = range.first; number != range.second; ++number ) {
-            BsbNumber* bsbNumber = number->second;
+            BsbNumberBase* bsbNumber = number->second;
             bsbNumber->schedule_next_regular_update( millis() );
             switch( bsbNumber->get_value_type() ) {
               case BsbNumberValueType::UInt8:

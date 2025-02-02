@@ -20,7 +20,7 @@ namespace esphome {
     extern const char* const TAG;
 
     using SensorMap = std::unordered_multimap< uint32_t, BsbSensorBase* >;
-    using NumberMap = std::unordered_multimap< uint32_t, BsbNumber* >;
+    using NumberMap = std::unordered_multimap< uint32_t, BsbNumberBase* >;
 
     class BsbComponent
         : public Component
@@ -44,7 +44,7 @@ namespace esphome {
       const uint8_t  get_retry_count() const { return retry_count_; }
 
       void register_sensor( BsbSensorBase* sensor ) { this->sensors_.insert( { sensor->get_field_id(), sensor } ); }
-      void register_number( BsbNumber* number ) { this->numbers_.insert( { number->get_field_id(), number } ); }
+      void register_number( BsbNumberBase* number ) { this->numbers_.insert( { number->get_field_id(), number } ); }
 
     protected:
       void callback_packet( const BsbPacket* packet );
