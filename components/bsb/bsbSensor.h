@@ -31,9 +31,11 @@ namespace esphome {
 
       const bool is_ready( const uint32_t timestamp ) {
         if( sent_get_ >= 5 ) {
-          ESP_LOGE( TAG, "BsbNumber %08X: retries exhausted, next try in %fs ", get_field_id(), retry_interval_ms_ / 1000. );
+          ESP_LOGE( TAG, "BsbNumber Get %08X: retries exhausted, next try in %fs ", get_field_id(), retry_interval_ms_ / 1000. );
           if( timestamp >= ( next_update_timestamp_ + retry_interval_ms_ ) ) {
+            ESP_LOGE( TAG, "BsbNumber Set %08X: retrying", get_field_id(), retry_interval_ms_ / 1000. );
             sent_get_ = 0;
+            return true;
           }
         }
 

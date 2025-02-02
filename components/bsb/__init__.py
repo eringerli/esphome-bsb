@@ -57,7 +57,7 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(BsbComponent),
             cv.Optional(CONF_RETRY_COUNT, default="3"): cv.hex_int_range(0x00,0xff),
-            cv.Optional(CONF_RETRY_INTERVAL, default="5s"): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_RETRY_INTERVAL, default="15s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_QUERY_INTERVAL, default="0.25s"): cv.positive_time_period_milliseconds,
             cv.Optional(
                 CONF_SOURCE_ADDRESS, default="66"
