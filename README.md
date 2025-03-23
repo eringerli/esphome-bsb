@@ -107,6 +107,7 @@ Some values have to be sent as INF telegrams, like the room or the outside tempe
 
 This is the code I use in my heating system:
 ```yaml
+number:
   - platform: bsb
     bsb_id: bsb1
     field_id: 0x2D3D0215
