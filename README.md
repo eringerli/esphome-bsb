@@ -3,12 +3,12 @@
 BSB is a protocol used by many heating systems. This is a simple and small (<1000 SLOC C++, <350 SLOC Python) implementation of BSB as an ESPHome component. It can be used together with other sensors and protocols like reading electricity, water or gas meters, which are usually in the same room as the heating system. Even multiple BSB busses are possible.
 
 Use the documentation of [BSB-LAN](https://docs.bsb-lan.de/index.html) to get details, but the physical interface is really
-simple: [schematics](https://github.com/fredlcore/BSB-LAN/blob/master/BSB_LAN/schematics/bsb_adapter.pdf). If you forego the galvanic isolation you can even cobble together an interface with some resistors and a transistor. I personally use two small-signal solid state relays (SSR), these are basically opto-couplers. Beware that the ESP32s can only handle 3.3V.
+simple: [schematics](https://github.com/fredlcore/BSB-LAN/blob/master/BSB_LAN/schematics/bsb_adapter.pdf). If you forego the galvanic isolation you can even cobble together an interface with some resistors and a transistor and inverting the GPIOs as needed. I personally use two small-signal solid state relays (SSR), these are basically opto-couplers with a MOSFET driver. Beware that the ESP32s can only handle 3.3V and that opto-couplers have a current dependent maximum transmission frequency, so be sure to look inside the datasheets of your specific chips.
 
 ## Field IDs
 The used field IDs can be gleaned from: [BSB_LAN_custom_defs.h.default](https://github.com/fredlcore/BSB-LAN/blob/v2.2.2/BSB_LAN/BSB_LAN_custom_defs.h.default).
 
-Yes, it is unnessesary hard to get them, but this comes from the undocumented, grown over decades of many, *many* different heating systems control units and therefore not logical structure of theses numbers. But there is a silver lining: if you set the parameters on the controlling unit and listen at the same time on the bus, the IDs/packets get printed in the log on the `DEBUG` level. After some experimentation with the the data type and the factors, you can add almost any parameter to the YAML. There is no apparent correlation between parameter number and field ID.
+Yes, it is unnessesary hard to get them, but this comes from the undocumented, grown over decades of many, *many* different heating systems control units and therefore not logical structure of theses numbers. But there is a silver lining: if you set the parameters on the controlling unit on the heating system and listen at the same time on the bus, the IDs/packets get printed in the log on the `DEBUG` level. After some experimentation with the the data type and the factors, you can add almost any parameter to the YAML. Sadly, there is no apparent correlation between parameter number and field ID.
 
 ## Component
 This component can be added as an external component, as shown in the example code below, so no need to clone/fork the repository.
@@ -150,10 +150,33 @@ number:
     mode: box
 ```
 
-## Getting the Heating Units ID/Type
+# Getting Started
 You usually want to read out the identification and the type of the heating system, so you can search for the parameters in the header file from BSB-LAN.
 
+Here is a snippet to start with:
 ```yaml
+external_components:
+ - source: github://eringerli/esphome-bsb
+     refresh: 0s
+     components: [bsb]
+
+uart:
+  - id: uart_bsb
+    rx_pin:
+      number: GPIO02
+      inverted: false
+    tx_pin:
+      number: GPIO03
+      inverted: false
+    baud_rate: 4800
+    data_bits: 8
+    parity: ODD
+    stop_bits: 1
+
+bsb:
+  id: bsb1
+  uart_id: uart_bsb
+
 sensor:
   - platform: bsb
     bsb_id: bsb1
