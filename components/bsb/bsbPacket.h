@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <string>
 #include <vector>
@@ -14,6 +15,14 @@
 namespace esphome {
   namespace bsb {
     class BsbPacket {
+      static std::string to_hex( const std::vector< uint8_t >& data ) {
+        // +1 keeps the buffer non-empty for empty data, so the terminator always fits
+        std::string hex( format_hex_pretty_size( data.size() ) + 1, '\0' );
+        format_hex_pretty_to( &hex[0], hex.size(), data.data(), data.size() );
+        hex.resize( std::strlen( hex.c_str() ) );
+        return hex;
+      }
+
     public:
       enum class Command : uint8_t { None = 0, Inf = 2, Set = 3, Ack = 4, Nack = 5, Get = 6, Ret = 7, Error = 8 };
 
@@ -84,11 +93,11 @@ namespace esphome {
 
         if( payload.size() ) {
           output += ", payload: ";
-          output += format_hex_pretty( payload );
+          output += to_hex( payload );
         }
 
         output += " (";
-        output += esphome::format_hex_pretty( buffer );
+        output += to_hex( buffer );
         output += ") ";
 
         return output;
